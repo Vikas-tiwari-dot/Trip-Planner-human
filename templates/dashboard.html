@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Pathick{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <!-- Header -->
+  <div class="mb-8">
+    <h1 class="font-display text-3xl font-bold mb-1">Dashboard</h1>
+    <p class="text-slate-400" id="welcomeMsg">Welcome back, Explorer!</p>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center">
+          <i class="fa-solid fa-users text-brand-400"></i>
+        </div>
+        <span class="text-xs text-brand-400 bg-brand-500/10 px-2 py-1 rounded-full" id="onlineCount">— online</span>
+      </div>
+      <div class="font-display text-2xl font-bold" id="nearbyCount">—</div>
+      <div class="text-slate-500 text-xs mt-1">Nearby Travelers</div>
+    </div>
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center">
+          <i class="fa-solid fa-message text-indigo-400"></i>
+        </div>
+        <span class="text-xs text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-full" id="unreadBadge">0 new</span>
+      </div>
+      <div class="font-display text-2xl font-bold" id="msgCount">—</div>
+      <div class="text-slate-500 text-xs mt-1">Messages</div>
+    </div>
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-10 h-10 rounded-xl bg-purple-500/15 flex items-center justify-center">
+          <i class="fa-solid fa-plane-departure text-purple-400"></i>
+        </div>
+      </div>
+      <div class="font-display text-2xl font-bold" id="tripCount">—</div>
+      <div class="text-slate-500 text-xs mt-1">Trips Taken</div>
+    </div>
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-10 h-10 rounded-xl bg-yellow-500/15 flex items-center justify-center">
+          <i class="fa-solid fa-route text-yellow-400"></i>
+        </div>
+      </div>
+      <div class="font-display text-2xl font-bold" id="distCount">—</div>
+      <div class="text-slate-500 text-xs mt-1">KM Traveled</div>
+    </div>
+  </div>
+
+  <div class="grid lg:grid-cols-3 gap-6">
+    <!-- Mini Map -->
+    <div class="lg:col-span-2 card p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-display font-bold text-lg">Live Map</h2>
+        <a href="/map" class="text-brand-400 text-sm hover:underline">Full Map →</a>
+      </div>
+      <div id="dashMap" style="height: 320px; border-radius: 10px;"></div>
+    </div>
+
+    <!-- Right column -->
+    <div class="space-y-6">
+      <!-- Location Card -->
+      <div class="card p-5">
+        <h2 class="font-display font-bold mb-4">My Location</h2>
+        <div id="locationStatus" class="text-slate-400 text-sm mb-4">
+          <i class="fa-solid fa-location-arrow mr-2"></i>Not sharing
+        </div>
+        <button onclick="shareLocation()" class="btn-brand w-full justify-center text-sm py-2.5" id="locationBtn">
+          <i class="fa-solid fa-location-crosshairs"></i> Share Location
+        </button>
+      </div>
+
+      <!-- Nearby Travelers -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-display font-bold">Nearby Travelers</h2>
+          <a href="/map" class="text-slate-500 text-xs hover:text-brand-400">View all</a>
+        </div>
+        <div id="nearbyList" class="space-y-3">
+          <div class="text-slate-500 text-sm">Enable location to see nearby travelers</div>
+        </div>
+      </div>
+
+      <!-- Recent Messages -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-display font-bold">Recent Chats</h2>
+          <a href="/chat" class="text-slate-500 text-xs hover:text-brand-400">Open chat</a>
+        </div>
+        <div id="recentChats" class="space-y-3">
+          <div class="text-slate-500 text-sm">No recent conversations</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Trip Banner -->
+  <div id="activeTripBanner" class="hidden mt-6">
+    <div class="card p-5 border-brand-500/30 bg-brand-500/5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-10 h-10 rounded-xl bg-brand-500/20 flex items-center justify-center">
+            <i class="fa-solid fa-plane text-brand-400"></i>
+          </div>
+          <div>
+            <div class="font-semibold">Active Trip</div>
+            <div class="text-slate-400 text-sm" id="activeTripInfo">—</div>
+          </div>
+        </div>
+        <a href="/routes" class="btn-ghost text-sm">View Details</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+    <a href="/routes" class="card p-5 text-center hover:border-brand-500/30 transition-all group">
+      <i class="fa-solid fa-route text-2xl text-brand-400 mb-3 block group-hover:scale-110 transition-transform"></i>
+      <div class="font-semibold text-sm">Plan Route</div>
+    </a>
+    <a href="/chat" class="card p-5 text-center hover:border-indigo-500/30 transition-all group">
+      <i class="fa-solid fa-comments text-2xl text-indigo-400 mb-3 block group-hover:scale-110 transition-transform"></i>
+      <div class="font-semibold text-sm">Open Chat</div>
+    </a>
+    <a href="/guides" class="card p-5 text-center hover:border-purple-500/30 transition-all group">
+      <i class="fa-solid fa-user-tie text-2xl text-purple-400 mb-3 block group-hover:scale-110 transition-transform"></i>
+      <div class="font-semibold text-sm">Find Guide</div>
+    </a>
+    <a href="/profile" class="card p-5 text-center hover:border-yellow-500/30 transition-all group">
+      <i class="fa-solid fa-user-circle text-2xl text-yellow-400 mb-3 block group-hover:scale-110 transition-transform"></i>
+      <div class="font-semibold text-sm">My Profile</div>
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let dashMap, currentUser, socket;
+let locationInterval = null;
+
+async function initDashboard() {
+  currentUser = await checkAuth();
+  if (!currentUser) { window.location.href = '/login'; return; }
+
+  document.getElementById('welcomeMsg').textContent = `Welcome back, ${currentUser.username}! 👋`;
+
+  // Init map
+  const center = currentUser.latitude ? [currentUser.latitude, currentUser.longitude] : [20.5937, 78.9629];
+  dashMap = L.map('dashMap', { zoomControl: true }).setView(center, 5);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(dashMap);
+
+  // Load data
+  await Promise.all([loadNearby(), loadChats(), loadTrips(), loadOnlineCount()]);
+
+  // Connect socket
+  connectSocket();
+}
+
+function connectSocket() {
+  socket = io({ auth: { token: localStorage.getItem('pathick_token') } });
+  socket.on('connect', () => {
+    socket.emit('join_map_room', {});
+  });
+  socket.on('all_locations', (data) => {
+    data.users.forEach(u => addMapMarker(u));
+  });
+  socket.on('location_update', (data) => {
+    addMapMarker(data);
+  });
+  socket.on('trip_detected', (data) => {
+    showToast(`🚀 ${data.message}`, 'success', 6000);
+    document.getElementById('activeTripBanner').classList.remove('hidden');
+    document.getElementById('activeTripInfo').textContent = `${data.distance.toFixed(1)} km trip in progress`;
+  });
+}
+
+const mapMarkers = {};
+function addMapMarker(user) {
+  if (!user.latitude || !user.longitude) return;
+  const isGuide = user.role === 'guide';
+  const color = isGuide ? '#8b5cf6' : '#14b8a6';
+  const icon = L.divIcon({
+    html: `<div style="width:14px;height:14px;background:${color};border-radius:50%;border:2px solid white;box-shadow:0 0 8px ${color}80"></div>`,
+    className: '', iconSize: [14, 14], iconAnchor: [7, 7]
+  });
+
+  if (mapMarkers[user.user_id || user.id]) {
+    mapMarkers[user.user_id || user.id].setLatLng([user.lat || user.latitude, user.lng || user.longitude]);
+  } else {
+    const marker = L.marker([user.lat || user.latitude, user.lng || user.longitude], { icon })
+      .addTo(dashMap)
+      .bindPopup(`<b>${user.username}</b><br><span style="color:#94a3b8;font-size:12px">${user.role}</span>`);
+    mapMarkers[user.user_id || user.id] = marker;
+  }
+}
+
+async function loadNearby() {
+  if (!currentUser.latitude) return;
+  const data = await API.get('/users/nearby?radius=100');
+  document.getElementById('nearbyCount').textContent = data.nearby?.length || '0';
+  const list = document.getElementById('nearbyList');
+  if (data.nearby?.length) {
+    list.innerHTML = data.nearby.slice(0, 4).map(u => `
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-indigo-500 flex items-center justify-center text-xs font-bold flex-shrink-0">${u.username[0].toUpperCase()}</div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold truncate">${u.username}</div>
+          <div class="text-xs text-slate-500">${u.distance_km} km away • ${u.role}</div>
+        </div>
+        <a href="/chat/${u.id}" class="text-brand-400 text-xs hover:underline">Chat</a>
+      </div>`).join('');
+  }
+}
+
+async function loadChats() {
+  const data = await API.get('/chat/conversations');
+  document.getElementById('msgCount').textContent = data.conversations?.length || '0';
+  const unread = data.conversations?.reduce((s, c) => s + (c.unread_count || 0), 0) || 0;
+  document.getElementById('unreadBadge').textContent = unread + ' new';
+
+  const list = document.getElementById('recentChats');
+  if (data.conversations?.length) {
+    list.innerHTML = data.conversations.slice(0, 3).map(c => `
+      <a href="/chat/${c.user.id}" class="flex items-center gap-3 hover:bg-white/5 rounded-lg p-1 -mx-1 transition-colors">
+        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-xs font-bold flex-shrink-0">${c.user.username[0].toUpperCase()}</div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold truncate">${c.user.username}</div>
+          <div class="text-xs text-slate-500 truncate">${c.last_message?.content || ''}</div>
+        </div>
+        ${c.unread_count > 0 ? `<span class="w-5 h-5 bg-brand-500 rounded-full text-xs flex items-center justify-center font-bold">${c.unread_count}</span>` : ''}
+      </a>`).join('');
+  }
+}
+
+async function loadTrips() {
+  const data = await API.get('/trips/');
+  document.getElementById('tripCount').textContent = data.trips?.length || '0';
+  const dist = data.trips?.reduce((s, t) => s + (t.distance || 0), 0) || 0;
+  document.getElementById('distCount').textContent = Math.round(dist);
+
+  const active = await API.get('/trips/active');
+  if (active.trip) {
+    document.getElementById('activeTripBanner').classList.remove('hidden');
+    document.getElementById('activeTripInfo').textContent = `From ${active.trip.start_location} — ${(active.trip.distance || 0).toFixed(1)} km`;
+  }
+}
+
+async function loadOnlineCount() {
+  const data = await API.get('/users/online');
+  document.getElementById('onlineCount').textContent = (data.count || 0) + ' online';
+}
+
+async function shareLocation() {
+  const btn = document.getElementById('locationBtn');
+  if (!navigator.geolocation) { showToast('Geolocation not supported', 'error'); return; }
+
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Getting location...';
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const { latitude, longitude } = pos.coords;
+    await API.post('/users/update-location', { latitude, longitude });
+
+    // Update socket
+    if (socket) {
+      socket.emit('update_location', {
+        token: localStorage.getItem('pathick_token'),
+        lat: latitude, lng: longitude
+      });
+    }
+
+    document.getElementById('locationStatus').innerHTML = `<i class="fa-solid fa-location-dot mr-2 text-brand-400"></i>${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+    btn.innerHTML = '<i class="fa-solid fa-location-dot"></i> Sharing Location';
+    btn.classList.add('opacity-75');
+    showToast('Location shared!', 'success');
+
+    dashMap.setView([latitude, longitude], 10);
+    loadNearby();
+
+    // Auto-update every 30s
+    if (locationInterval) clearInterval(locationInterval);
+    locationInterval = setInterval(async () => {
+      navigator.geolocation.getCurrentPosition(async (p) => {
+        await API.post('/users/update-location', { latitude: p.coords.latitude, longitude: p.coords.longitude });
+        if (socket) socket.emit('update_location', { token: localStorage.getItem('pathick_token'), lat: p.coords.latitude, lng: p.coords.longitude });
+      });
+    }, 30000);
+  }, () => {
+    showToast('Could not get location', 'error');
+    btn.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i> Share Location';
+  });
+}
+
+initDashboard();
+</script>
+{% endblock %}

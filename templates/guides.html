@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Find Guides — Pathick{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-10">
+  <div class="mb-8">
+    <h1 class="font-display text-3xl font-bold mb-2">Find Local Guides</h1>
+    <p class="text-slate-400">Connect with expert local guides for an authentic travel experience</p>
+  </div>
+
+  <!-- Filters -->
+  <div class="card p-4 mb-8 flex flex-wrap gap-4 items-end">
+    <div class="flex-1 min-w-48">
+      <label class="block text-xs text-slate-500 mb-1.5">Search by name or expertise</label>
+      <input type="text" id="searchInput" class="input-field text-sm" placeholder="e.g. Trekking, Heritage..." oninput="filterGuides()" />
+    </div>
+    <div class="min-w-40">
+      <label class="block text-xs text-slate-500 mb-1.5">Language</label>
+      <select id="langFilter" class="input-field text-sm" onchange="filterGuides()">
+        <option value="">All Languages</option>
+        <option value="English">English</option>
+        <option value="Hindi">Hindi</option>
+        <option value="Spanish">Spanish</option>
+        <option value="French">French</option>
+        <option value="Japanese">Japanese</option>
+      </select>
+    </div>
+    <div class="min-w-40">
+      <label class="block text-xs text-slate-500 mb-1.5">Availability</label>
+      <select id="availFilter" class="input-field text-sm" onchange="filterGuides()">
+        <option value="">Any</option>
+        <option value="available">Available Now</option>
+      </select>
+    </div>
+    <button onclick="filterGuides()" class="btn-brand text-sm py-3 px-5">
+      <i class="fa-solid fa-magnifying-glass"></i> Search
+    </button>
+  </div>
+
+  <!-- Loading / grid -->
+  <div id="guidesGrid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+    <div class="text-slate-500">Loading guides...</div>
+  </div>
+
+  <!-- Nearby guides section -->
+  <div id="nearbySection" class="mt-12">
+    <h2 class="font-display font-bold text-xl mb-5">Guides Near You</h2>
+    <div id="nearbyGuides" class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div class="card p-5 text-slate-500 text-sm">
+        <i class="fa-solid fa-location-crosshairs mr-2 text-brand-400"></i>
+        <span>Share your location to find guides near you</span>
+        <button onclick="loadNearbyGuides()" class="btn-brand text-xs py-2 px-4 ml-3 mt-3 block">Enable Location</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Guide Detail Modal -->
+<div id="guideModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="card w-full max-w-lg overflow-y-auto max-h-screen">
+    <div class="flex items-center justify-between p-5 border-b border-white/5">
+      <h3 class="font-display font-bold text-lg">Guide Profile</h3>
+      <button onclick="closeGuideModal()" class="text-slate-500 hover:text-white">
+        <i class="fa-solid fa-xmark text-xl"></i>
+      </button>
+    </div>
+    <div id="guideModalContent" class="p-6"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allGuides = [];
+let currentUser;
+
+async function initGuides() {
+  currentUser = await checkAuth();
+  if (!currentUser) { window.location.href = '/login'; return; }
+  await loadGuides();
+}
+
+async function loadGuides() {
+  const data = await API.get('/users/guides');
+  allGuides = data.guides || [];
+  renderGuides(allGuides);
+}
+
+function renderGuides(guides) {
+  const grid = document.getElementById('guidesGrid');
+  if (!guides.length) {
+    grid.innerHTML = `<div class="col-span-3 text-center py-12">
+      <i class="fa-solid fa-user-tie text-slate-700 text-4xl block mb-3"></i>
+      <p class="text-slate-500">No guides found. Try adjusting your filters.</p>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = guides.map(g => guideCard(g)).join('');
+}
+
+function guideCard(g, distKm) {
+  const initials = g.username.slice(0, 2).toUpperCase();
+  const expertiseTags = (g.expertise || '').split(',').slice(0, 3).filter(Boolean);
+  const langs = (g.languages || '').split(',').slice(0, 3).filter(Boolean);
+  return `
+    <div class="card p-5 hover:border-purple-500/30 transition-all cursor-pointer group" onclick="showGuideDetail(${JSON.stringify(g).replace(/"/g, '&quot;')})">
+      <div class="flex items-start justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center text-lg font-bold font-display">${initials}</div>
+          <div>
+            <div class="font-display font-bold text-base">${g.username}</div>
+            <div class="flex items-center gap-1.5 mt-0.5">
+              ${g.is_online ? '<span class="online-dot" style="width:6px;height:6px;"></span><span class="text-xs text-green-400">Online</span>' : '<span class="text-xs text-slate-600">Offline</span>'}
+            </div>
+          </div>
+        </div>
+        ${g.is_available ? '<span class="text-xs bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full">Available</span>' : '<span class="text-xs bg-white/5 text-slate-500 px-2 py-0.5 rounded-full">Busy</span>'}
+      </div>
+
+      ${g.bio ? `<p class="text-slate-400 text-xs mb-3 line-clamp-2">${g.bio}</p>` : ''}
+
+      ${expertiseTags.length ? `
+        <div class="flex flex-wrap gap-1.5 mb-3">
+          ${expertiseTags.map(t => `<span class="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-md">${t.trim()}</span>`).join('')}
+        </div>` : ''}
+
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3 text-xs text-slate-500">
+          ${langs.length ? `<span><i class="fa-solid fa-language mr-1 text-brand-400"></i>${langs[0].trim()}</span>` : ''}
+          ${g.hourly_rate ? `<span><i class="fa-solid fa-dollar-sign mr-1 text-green-400"></i>$${g.hourly_rate}/hr</span>` : ''}
+          ${distKm !== undefined ? `<span><i class="fa-solid fa-location-dot mr-1 text-slate-500"></i>${distKm} km</span>` : ''}
+        </div>
+        <button class="opacity-0 group-hover:opacity-100 text-xs btn-brand py-1.5 px-3 transition-all" onclick="event.stopPropagation(); window.location.href='/chat/${g.id}'">
+          <i class="fa-solid fa-message"></i> Message
+        </button>
+      </div>
+    </div>`;
+}
+
+function filterGuides() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const lang = document.getElementById('langFilter').value.toLowerCase();
+  const avail = document.getElementById('availFilter').value;
+
+  const filtered = allGuides.filter(g => {
+    const matchQ = !q || g.username.toLowerCase().includes(q) || (g.expertise || '').toLowerCase().includes(q);
+    const matchLang = !lang || (g.languages || '').toLowerCase().includes(lang);
+    const matchAvail = !avail || (avail === 'available' && g.is_available);
+    return matchQ && matchLang && matchAvail;
+  });
+  renderGuides(filtered);
+}
+
+async function loadNearbyGuides() {
+  if (!navigator.geolocation) { showToast('Geolocation not supported', 'error'); return; }
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const { latitude, longitude } = pos.coords;
+    await API.post('/users/update-location', { latitude, longitude });
+    const data = await API.get('/users/nearby?radius=200&role=guide');
+
+    const container = document.getElementById('nearbyGuides');
+    if (!data.nearby?.length) {
+      container.innerHTML = '<div class="text-slate-500 text-sm col-span-3">No guides found within 200 km of your location.</div>';
+      return;
+    }
+
+    container.innerHTML = data.nearby.map(g => guideCard(g, g.distance_km)).join('');
+    showToast(`Found ${data.nearby.length} guides near you!`, 'success');
+  }, () => showToast('Location access denied', 'error'));
+}
+
+function showGuideDetail(guide) {
+  const expertiseTags = (guide.expertise || '').split(',').filter(Boolean);
+  const langs = (guide.languages || '').split(',').filter(Boolean);
+  document.getElementById('guideModalContent').innerHTML = `
+    <div class="text-center mb-6">
+      <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center text-2xl font-bold font-display mx-auto mb-3">${guide.username.slice(0,2).toUpperCase()}</div>
+      <h3 class="font-display text-2xl font-bold">${guide.username}</h3>
+      <div class="flex items-center justify-center gap-2 mt-1">
+        ${guide.is_online ? '<span class="online-dot" style="width:7px;height:7px;"></span><span class="text-sm text-green-400">Online</span>' : '<span class="text-sm text-slate-500">Offline</span>'}
+        <span class="text-slate-600">•</span>
+        ${guide.is_available ? '<span class="text-sm text-green-400">Available</span>' : '<span class="text-sm text-slate-500">Busy</span>'}
+      </div>
+    </div>
+    ${guide.bio ? `<p class="text-slate-400 text-sm mb-5 text-center">${guide.bio}</p>` : ''}
+
+    <div class="space-y-3 mb-6">
+      ${expertiseTags.length ? `
+        <div class="card p-3">
+          <div class="text-xs text-slate-500 mb-2 uppercase tracking-wider">Expertise</div>
+          <div class="flex flex-wrap gap-2">${expertiseTags.map(t => `<span class="text-xs bg-purple-500/10 text-purple-400 px-2 py-1 rounded-md">${t.trim()}</span>`).join('')}</div>
+        </div>` : ''}
+      ${langs.length ? `
+        <div class="card p-3 flex items-center gap-3">
+          <i class="fa-solid fa-language text-brand-400"></i>
+          <div><div class="text-xs text-slate-500">Languages</div><div class="text-sm">${langs.join(', ')}</div></div>
+        </div>` : ''}
+      ${guide.hourly_rate ? `
+        <div class="card p-3 flex items-center gap-3">
+          <i class="fa-solid fa-dollar-sign text-green-400"></i>
+          <div><div class="text-xs text-slate-500">Hourly Rate</div><div class="text-sm font-bold text-green-400">$${guide.hourly_rate} / hour</div></div>
+        </div>` : ''}
+      ${guide.location_name ? `
+        <div class="card p-3 flex items-center gap-3">
+          <i class="fa-solid fa-location-dot text-slate-400"></i>
+          <div><div class="text-xs text-slate-500">Location</div><div class="text-sm">${guide.location_name}</div></div>
+        </div>` : ''}
+    </div>
+
+    <div class="flex gap-3">
+      <a href="/chat/${guide.id}" class="btn-brand flex-1 justify-center py-3 text-sm"><i class="fa-solid fa-message"></i> Send Message</a>
+      <button onclick="closeGuideModal()" class="btn-ghost py-3 px-5 text-sm">Close</button>
+    </div>
+  `;
+  document.getElementById('guideModal').classList.remove('hidden');
+}
+
+function closeGuideModal() {
+  document.getElementById('guideModal').classList.add('hidden');
+}
+
+initGuides();
+</script>
+{% endblock %}

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Sign Up — Pathick{% endblock %}
+{% block navbar %}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center py-12 px-6">
+  <div class="w-full max-w-lg">
+    <a href="/" class="flex items-center gap-2 mb-8">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
+        <i class="fa-solid fa-compass text-white text-sm"></i>
+      </div>
+      <span class="font-display font-bold text-xl">Pathick</span>
+    </a>
+
+    <div class="card p-8">
+      <h1 class="font-display text-3xl font-bold mb-2">Create Account</h1>
+      <p class="text-slate-400 mb-8">Already have an account? <a href="/login" class="text-brand-400 hover:underline">Sign in</a></p>
+
+      <!-- Role selector -->
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-slate-300 mb-3">I am a...</label>
+        <div class="grid grid-cols-2 gap-3" id="roleSelector">
+          <button type="button" onclick="selectRole('traveler')" class="role-btn active p-4 rounded-xl border border-brand-500/50 bg-brand-500/10 text-left transition-all" data-role="traveler">
+            <i class="fa-solid fa-person-hiking text-brand-400 text-xl mb-2 block"></i>
+            <div class="font-semibold text-sm">Traveler</div>
+            <div class="text-slate-500 text-xs mt-1">Explore, connect & discover</div>
+          </button>
+          <button type="button" onclick="selectRole('guide')" class="role-btn p-4 rounded-xl border border-white/10 bg-white/5 text-left transition-all" data-role="guide">
+            <i class="fa-solid fa-user-tie text-slate-400 text-xl mb-2 block" id="guideIcon"></i>
+            <div class="font-semibold text-sm">Local Guide</div>
+            <div class="text-slate-500 text-xs mt-1">Share expertise & earn</div>
+          </button>
+        </div>
+      </div>
+
+      <form id="signupForm" class="space-y-4">
+        <input type="hidden" id="roleInput" value="traveler" />
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Username</label>
+            <input type="text" id="username" class="input-field" placeholder="explorer123" required minlength="3" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Email</label>
+            <input type="email" id="email" class="input-field" placeholder="you@email.com" required />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Password</label>
+          <input type="password" id="password" class="input-field" placeholder="Min 8 characters" required minlength="8" />
+          <div class="mt-2 h-1 rounded-full bg-white/10 overflow-hidden">
+            <div id="passwordStrength" class="h-full rounded-full transition-all duration-300" style="width:0%;background:#ef4444"></div>
+          </div>
+        </div>
+
+        <!-- Guide-specific fields -->
+        <div id="guideFields" class="hidden space-y-4">
+          <hr class="border-white/10">
+          <p class="text-sm text-brand-400 font-medium"><i class="fa-solid fa-circle-info mr-2"></i>Guide Details</p>
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Expertise / Specialization</label>
+            <input type="text" id="expertise" class="input-field" placeholder="e.g. Heritage tours, Trekking, Food tours" />
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-300 mb-2">Languages</label>
+              <input type="text" id="languages" class="input-field" placeholder="English, Hindi" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-300 mb-2">Hourly Rate (USD)</label>
+              <input type="number" id="hourlyRate" class="input-field" placeholder="15" min="0" />
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-brand w-full justify-center py-3 text-base mt-2" id="signupBtn">
+          <i class="fa-solid fa-user-plus"></i> Create Account
+        </button>
+      </form>
+
+      <p class="text-slate-600 text-xs text-center mt-5">By creating an account you agree to our Terms of Service and Privacy Policy.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedRole = 'traveler';
+
+function selectRole(role) {
+  selectedRole = role;
+  document.getElementById('roleInput').value = role;
+
+  document.querySelectorAll('.role-btn').forEach(btn => {
+    const isActive = btn.dataset.role === role;
+    btn.className = `role-btn p-4 rounded-xl border text-left transition-all ${
+      isActive ? 'border-brand-500/50 bg-brand-500/10' : 'border-white/10 bg-white/5'
+    }`;
+    const icon = btn.querySelector('i');
+    if (icon) icon.className = icon.className.replace(/text-\w+-\d+/, isActive ? 'text-brand-400' : 'text-slate-400');
+  });
+
+  document.getElementById('guideFields').classList.toggle('hidden', role !== 'guide');
+}
+
+// Password strength indicator
+document.getElementById('password').addEventListener('input', function() {
+  const val = this.value;
+  const bar = document.getElementById('passwordStrength');
+  let strength = 0;
+  if (val.length >= 8) strength++;
+  if (/[A-Z]/.test(val)) strength++;
+  if (/[0-9]/.test(val)) strength++;
+  if (/[^A-Za-z0-9]/.test(val)) strength++;
+
+  const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e'];
+  bar.style.width = (strength * 25) + '%';
+  bar.style.background = colors[strength - 1] || '#ef4444';
+});
+
+document.getElementById('signupForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('signupBtn');
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating account...';
+  btn.disabled = true;
+
+  const payload = {
+    username: document.getElementById('username').value.trim(),
+    email: document.getElementById('email').value.trim(),
+    password: document.getElementById('password').value,
+    role: selectedRole,
+  };
+
+  if (selectedRole === 'guide') {
+    payload.expertise = document.getElementById('expertise').value;
+    payload.languages = document.getElementById('languages').value;
+    payload.hourly_rate = parseFloat(document.getElementById('hourlyRate').value) || 0;
+  }
+
+  const data = await API.post('/auth/register', payload);
+
+  if (data.token) {
+    localStorage.setItem('pathick_token', data.token);
+    showToast('Account created! Welcome to Pathick 🎉', 'success');
+    setTimeout(() => window.location.href = '/dashboard', 1000);
+  } else {
+    showToast(data.error || 'Registration failed', 'error');
+    btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create Account';
+    btn.disabled = false;
+  }
+});
+
+checkAuth().then(user => { if (user) window.location.href = '/dashboard'; });
+</script>
+{% endblock %}

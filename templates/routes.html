@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+{% block title %}Route Planner — Pathick{% endblock %}
+
+{% block content %}
+<div class="flex h-[calc(100vh-64px)]">
+  <!-- Control Panel -->
+  <div class="sidebar w-96 flex-shrink-0 flex flex-col overflow-y-auto">
+    <div class="p-5 border-b border-white/5">
+      <h2 class="font-display font-bold text-xl mb-1">Route Planner</h2>
+      <p class="text-slate-500 text-sm">Powered by OpenStreetMap & OSRM</p>
+    </div>
+
+    <div class="p-5 space-y-4 flex-1">
+      <!-- Travel mode -->
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Travel Mode</label>
+        <div class="grid grid-cols-3 gap-2" id="modeSelector">
+          <button onclick="setMode('driving')" class="mode-btn active flex flex-col items-center gap-1 p-3 rounded-xl border border-brand-500/40 bg-brand-500/10 text-brand-400 text-xs font-medium transition-all" data-mode="driving">
+            <i class="fa-solid fa-car text-lg"></i> Driving
+          </button>
+          <button onclick="setMode('walking')" class="mode-btn flex flex-col items-center gap-1 p-3 rounded-xl border border-white/10 bg-white/5 text-slate-400 text-xs font-medium transition-all" data-mode="walking">
+            <i class="fa-solid fa-person-walking text-lg"></i> Walking
+          </button>
+          <button onclick="setMode('cycling')" class="mode-btn flex flex-col items-center gap-1 p-3 rounded-xl border border-white/10 bg-white/5 text-slate-400 text-xs font-medium transition-all" data-mode="cycling">
+            <i class="fa-solid fa-bicycle text-lg"></i> Cycling
+          </button>
+        </div>
+      </div>
+
+      <!-- Start -->
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Start</label>
+        <div class="relative">
+          <input type="text" id="startInput" class="input-field pr-10 text-sm" placeholder="Enter start location or use current..." />
+          <button onclick="useCurrentLocation()" class="absolute right-3 top-1/2 -translate-y-1/2 text-brand-400 hover:text-brand-300" title="Use my location">
+            <i class="fa-solid fa-location-crosshairs text-sm"></i>
+          </button>
+        </div>
+        <div id="startSuggestions" class="hidden mt-1 card p-1 z-50 absolute w-80"></div>
+      </div>
+
+      <!-- End -->
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Destination</label>
+        <div class="relative">
+          <input type="text" id="endInput" class="input-field text-sm" placeholder="Search destination..." />
+        </div>
+        <div id="endSuggestions" class="hidden mt-1 card p-1 z-50 absolute w-80"></div>
+      </div>
+
+      <button onclick="planRoute()" class="btn-brand w-full justify-center py-3 text-sm" id="planBtn">
+        <i class="fa-solid fa-route"></i> Plan Route
+      </button>
+
+      <!-- Route info -->
+      <div id="routeInfo" class="hidden">
+        <div class="card p-4 border-brand-500/20 bg-brand-500/5">
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="text-center">
+              <div class="font-display text-2xl font-bold text-brand-400" id="routeDistance">—</div>
+              <div class="text-xs text-slate-500 mt-1">Distance</div>
+            </div>
+            <div class="text-center">
+              <div class="font-display text-2xl font-bold text-brand-400" id="routeDuration">—</div>
+              <div class="text-xs text-slate-500 mt-1">ETA</div>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="saveTrip()" class="btn-brand flex-1 justify-center text-xs py-2">
+              <i class="fa-solid fa-floppy-disk"></i> Save Trip
+            </button>
+            <button onclick="exportFoliumMap()" class="btn-ghost flex-1 justify-center text-xs py-2">
+              <i class="fa-solid fa-map"></i> Folium Map
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Turn-by-turn directions -->
+      <div id="directionsPanel" class="hidden">
+        <h3 class="font-semibold text-sm mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-list-ul text-brand-400"></i> Turn-by-Turn Directions
+        </h3>
+        <div id="stepsList" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div class="flex-1 relative">
+    <div id="routeMap" class="w-full h-full"></div>
+
+    <!-- Folium map modal -->
+    <div id="foliumModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      <div class="card w-full max-w-4xl max-h-screen overflow-auto">
+        <div class="flex items-center justify-between p-4 border-b border-white/5">
+          <h3 class="font-display font-bold">Folium Map Export</h3>
+          <button onclick="closeFoliumModal()" class="text-slate-500 hover:text-white">
+            <i class="fa-solid fa-xmark text-xl"></i>
+          </button>
+        </div>
+        <div id="foliumContent" class="p-2" style="height: 500px;"></div>
+        <div class="p-4 border-t border-white/5 flex gap-3">
+          <button onclick="downloadFoliumMap()" class="btn-brand text-sm">
+            <i class="fa-solid fa-download"></i> Download HTML
+          </button>
+          <button onclick="closeFoliumModal()" class="btn-ghost text-sm">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let routeMap, currentUser;
+let routeLayer = null;
+let startMarker = null, endMarker = null;
+let selectedMode = 'driving';
+let currentRoute = null;
+let startCoords = null, endCoords = null;
+let foliumHtml = null;
+
+const maneuverIcons = {
+  'turn': 'fa-turn-up', 'new name': 'fa-arrow-up', 'depart': 'fa-play',
+  'arrive': 'fa-flag-checkered', 'merge': 'fa-code-merge', 'ramp': 'fa-road',
+  'on ramp': 'fa-road', 'off ramp': 'fa-road', 'fork': 'fa-code-fork',
+  'roundabout': 'fa-rotate', 'continue': 'fa-arrow-up'
+};
+
+async function initRoutePlanner() {
+  currentUser = await checkAuth();
+  if (!currentUser) { window.location.href = '/login'; return; }
+
+  routeMap = L.map('routeMap').setView([20.5937, 78.9629], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© OpenStreetMap contributors'
+  }).addTo(routeMap);
+
+  // Click map to set start/end
+  let clickMode = 'start';
+  routeMap.on('click', (e) => {
+    if (clickMode === 'start') {
+      startCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
+      document.getElementById('startInput').value = `${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
+      placeStartMarker(e.latlng.lat, e.latlng.lng);
+      clickMode = 'end';
+    } else {
+      endCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
+      document.getElementById('endInput').value = `${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
+      placeEndMarker(e.latlng.lat, e.latlng.lng);
+      clickMode = 'start';
+    }
+  });
+
+  setupSearchAutocomplete('startInput', 'startSuggestions', (r) => {
+    startCoords = { lat: r.lat, lng: r.lng };
+    placeStartMarker(r.lat, r.lng);
+    document.getElementById('startInput').value = r.display_name.split(',')[0];
+    document.getElementById('startSuggestions').classList.add('hidden');
+  });
+
+  setupSearchAutocomplete('endInput', 'endSuggestions', (r) => {
+    endCoords = { lat: r.lat, lng: r.lng };
+    placeEndMarker(r.lat, r.lng);
+    document.getElementById('endInput').value = r.display_name.split(',')[0];
+    document.getElementById('endSuggestions').classList.add('hidden');
+  });
+}
+
+function setupSearchAutocomplete(inputId, suggestionsId, onSelect) {
+  let timer;
+  document.getElementById(inputId).addEventListener('input', function() {
+    clearTimeout(timer);
+    const val = this.value.trim();
+    if (val.length < 3) { document.getElementById(suggestionsId).classList.add('hidden'); return; }
+    timer = setTimeout(async () => {
+      const data = await API.get(`/maps/geocode?q=${encodeURIComponent(val)}`);
+      const box = document.getElementById(suggestionsId);
+      if (data.results?.length) {
+        box.innerHTML = data.results.map((r, i) => `
+          <div class="px-3 py-2 rounded-lg hover:bg-white/10 cursor-pointer text-sm transition-all"
+               onclick="selectSuggestion_${inputId}(${i})">
+            <div class="font-medium truncate">${r.display_name.split(',')[0]}</div>
+            <div class="text-xs text-slate-500 truncate">${r.display_name.split(',').slice(1, 3).join(',')}</div>
+          </div>`).join('');
+        box.classList.remove('hidden');
+
+        window[`selectSuggestion_${inputId}`] = (i) => onSelect(data.results[i]);
+      } else {
+        box.classList.add('hidden');
+      }
+    }, 400);
+  });
+}
+
+function setMode(mode) {
+  selectedMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    const active = btn.dataset.mode === mode;
+    btn.className = `mode-btn flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all ${active ? 'border-brand-500/40 bg-brand-500/10 text-brand-400' : 'border-white/10 bg-white/5 text-slate-400'}`;
+  });
+}
+
+const greenDotIcon = L.divIcon({
+  html: `<div style="width:16px;height:16px;background:#22c55e;border-radius:50%;border:3px solid white;box-shadow:0 0 10px #22c55e80"></div>`,
+  className: '', iconSize: [16, 16], iconAnchor: [8, 8]
+});
+const redDotIcon = L.divIcon({
+  html: `<div style="width:16px;height:16px;background:#ef4444;border-radius:50%;border:3px solid white;box-shadow:0 0 10px #ef444480"></div>`,
+  className: '', iconSize: [16, 16], iconAnchor: [8, 8]
+});
+
+function placeStartMarker(lat, lng) {
+  if (startMarker) routeMap.removeLayer(startMarker);
+  startMarker = L.marker([lat, lng], { icon: greenDotIcon }).addTo(routeMap).bindPopup('Start');
+}
+
+function placeEndMarker(lat, lng) {
+  if (endMarker) routeMap.removeLayer(endMarker);
+  endMarker = L.marker([lat, lng], { icon: redDotIcon }).addTo(routeMap).bindPopup('Destination');
+}
+
+async function useCurrentLocation() {
+  if (!navigator.geolocation) { showToast('Geolocation not supported', 'error'); return; }
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const { latitude, longitude } = pos.coords;
+    startCoords = { lat: latitude, lng: longitude };
+    document.getElementById('startInput').value = 'My Current Location';
+    placeStartMarker(latitude, longitude);
+    routeMap.flyTo([latitude, longitude], 12);
+    showToast('Current location set as start', 'success');
+  }, () => showToast('Could not get location', 'error'));
+}
+
+async function planRoute() {
+  if (!startCoords || !endCoords) {
+    showToast('Please set both start and destination', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('planBtn');
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Planning...';
+  btn.disabled = true;
+
+  const data = await API.post('/maps/route', {
+    start_lat: startCoords.lat, start_lng: startCoords.lng,
+    end_lat: endCoords.lat, end_lng: endCoords.lng,
+    profile: selectedMode
+  });
+
+  btn.innerHTML = '<i class="fa-solid fa-route"></i> Plan Route';
+  btn.disabled = false;
+
+  if (data.waypoints) {
+    currentRoute = data;
+    displayRoute(data);
+  } else {
+    showToast('Could not calculate route', 'error');
+  }
+}
+
+function displayRoute(data) {
+  if (routeLayer) routeMap.removeLayer(routeLayer);
+
+  routeLayer = L.polyline(data.waypoints, {
+    color: '#14b8a6', weight: 5, opacity: 0.85,
+    dashArray: null, lineCap: 'round'
+  }).addTo(routeMap);
+
+  routeMap.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+
+  // Distance
+  document.getElementById('routeDistance').textContent =
+    data.distance_km >= 1 ? `${data.distance_km} km` : `${(data.distance_km * 1000).toFixed(0)} m`;
+
+  // Duration
+  const mins = data.duration_min;
+  document.getElementById('routeDuration').textContent =
+    mins >= 60 ? `${Math.floor(mins/60)}h ${Math.round(mins%60)}m` : `${Math.round(mins)} min`;
+
+  document.getElementById('routeInfo').classList.remove('hidden');
+
+  // Steps
+  if (data.steps?.length) {
+    document.getElementById('directionsPanel').classList.remove('hidden');
+    const stepsList = document.getElementById('stepsList');
+    stepsList.innerHTML = data.steps.filter(s => s.instruction).map((step, i) => `
+      <div class="flex items-start gap-3 p-2 rounded-lg hover:bg-white/5 transition-all">
+        <div class="w-7 h-7 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <i class="fa-solid ${maneuverIcons[step.maneuver_type] || 'fa-arrow-up'} text-brand-400 text-xs"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm text-slate-300">${step.instruction || 'Continue'}</div>
+          <div class="text-xs text-slate-600 mt-0.5">${step.distance ? step.distance + ' km' : ''} ${step.duration ? '• ' + step.duration + ' min' : ''}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  if (data.fallback) showToast('Using straight-line estimate (OSRM unavailable)', 'warning');
+  else showToast('Route calculated!', 'success');
+}
+
+async function saveTrip() {
+  if (!currentRoute) return;
+  const startName = document.getElementById('startInput').value;
+  const endName = document.getElementById('endInput').value;
+
+  const data = await API.post('/trips/', {
+    start_location: startName,
+    destination: endName,
+    start_lat: startCoords.lat, start_lng: startCoords.lng,
+    end_lat: endCoords.lat, end_lng: endCoords.lng,
+    distance: currentRoute.distance_km,
+  });
+
+  if (data.trip) {
+    showToast('Trip saved!', 'success');
+  }
+}
+
+async function exportFoliumMap() {
+  if (!currentRoute) return;
+  const btn = event.target;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+
+  const markers = [
+    { lat: startCoords.lat, lng: startCoords.lng, popup: document.getElementById('startInput').value, color: 'green', icon: 'play' },
+    { lat: endCoords.lat, lng: endCoords.lng, popup: document.getElementById('endInput').value, color: 'red', icon: 'flag' }
+  ];
+
+  const data = await API.post('/maps/folium', {
+    lat: (startCoords.lat + endCoords.lat) / 2,
+    lng: (startCoords.lng + endCoords.lng) / 2,
+    markers,
+    route: currentRoute.waypoints
+  });
+
+  btn.innerHTML = '<i class="fa-solid fa-map"></i> Folium Map';
+
+  if (data.map_html) {
+    foliumHtml = data.map_html;
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:8px';
+    iframe.srcdoc = data.map_html;
+    const container = document.getElementById('foliumContent');
+    container.innerHTML = '';
+    container.appendChild(iframe);
+    document.getElementById('foliumModal').classList.remove('hidden');
+  } else {
+    showToast('Failed to generate Folium map', 'error');
+  }
+}
+
+function closeFoliumModal() {
+  document.getElementById('foliumModal').classList.add('hidden');
+}
+
+function downloadFoliumMap() {
+  if (!foliumHtml) return;
+  const blob = new Blob([foliumHtml], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'pathick-route-map.html';
+  a.click();
+}
+
+// Close suggestion boxes when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#startInput')) document.getElementById('startSuggestions').classList.add('hidden');
+  if (!e.target.closest('#endInput')) document.getElementById('endSuggestions').classList.add('hidden');
+});
+
+initRoutePlanner();
+</script>
+{% endblock %}

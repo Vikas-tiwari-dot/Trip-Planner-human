@@ -1,0 +1,42 @@
+/* Pathick — Additional Styles */
+
+/* Line clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Custom Leaflet marker pulse */
+@keyframes markerPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(20,184,166,0.6); }
+  50% { box-shadow: 0 0 20px rgba(20,184,166,0.9); }
+}
+
+/* Map container height fix */
+.leaflet-container {
+  background: #0f1117 !important;
+}
+
+/* Message bubble styles */
+.msg-bubble {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+/* Active nav items */
+.nav-link.router-active {
+  color: #14b8a6;
+}
+
+/* Smooth page transitions */
+.page-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.3s ease;
+}

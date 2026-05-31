@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block title %}Chat — Pathick{% endblock %}
+
+{% block content %}
+<div class="flex h-[calc(100vh-64px)]">
+  <!-- Conversations sidebar -->
+  <div class="sidebar w-80 flex-shrink-0 flex flex-col">
+    <div class="p-4 border-b border-white/5">
+      <h2 class="font-display font-bold text-lg mb-3">Messages</h2>
+      <div class="relative">
+        <input type="text" id="searchUsers" class="input-field pr-10 text-sm" placeholder="Search travelers..." oninput="searchUsers(this.value)" />
+        <i class="fa-solid fa-magnifying-glass absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto" id="conversationList">
+      <div class="p-4 text-slate-500 text-sm">Loading conversations...</div>
+    </div>
+  </div>
+
+  <!-- Chat area -->
+  <div class="flex-1 flex flex-col">
+    <!-- No chat selected -->
+    <div id="noChatSelected" class="flex-1 flex items-center justify-center">
+      <div class="text-center">
+        <i class="fa-regular fa-comments text-5xl text-slate-700 mb-4 block"></i>
+        <h3 class="font-display font-bold text-xl mb-2">Select a Conversation</h3>
+        <p class="text-slate-500 text-sm">Choose a traveler to start chatting</p>
+      </div>
+    </div>
+
+    <!-- Active chat -->
+    <div id="activeChatArea" class="hidden flex-1 flex flex-col">
+      <!-- Chat header -->
+      <div class="p-4 border-b border-white/5 flex items-center gap-4">
+        <button onclick="closeChat()" class="text-slate-500 hover:text-white lg:hidden">
+          <i class="fa-solid fa-arrow-left"></i>
+        </button>
+        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center font-bold" id="chatAvatar">?</div>
+        <div class="flex-1">
+          <div class="font-semibold" id="chatUsername">—</div>
+          <div class="text-xs text-slate-500" id="chatStatus">—</div>
+        </div>
+        <a id="viewProfileBtn" href="#" class="text-slate-500 hover:text-white text-sm">
+          <i class="fa-solid fa-user"></i>
+        </a>
+        <a id="viewMapBtn" href="/map" class="text-slate-500 hover:text-white text-sm">
+          <i class="fa-solid fa-map"></i>
+        </a>
+      </div>
+
+      <!-- Messages -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-3" id="messagesContainer">
+        <div class="text-center text-slate-600 text-xs py-4">Loading messages...</div>
+      </div>
+
+      <!-- Typing indicator -->
+      <div id="typingIndicator" class="hidden px-4 pb-1">
+        <div class="flex items-center gap-2 text-xs text-slate-500">
+          <div class="flex gap-1">
+            <span class="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style="animation-delay:0s"></span>
+            <span class="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style="animation-delay:0.15s"></span>
+            <span class="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style="animation-delay:0.3s"></span>
+          </div>
+          <span id="typingName">Someone</span> is typing...
+        </div>
+      </div>
+
+      <!-- Message input -->
+      <div class="p-4 border-t border-white/5">
+        <div class="flex gap-3">
+          <input type="text" id="messageInput" class="input-field flex-1 text-sm" placeholder="Type a message..." maxlength="2000" />
+          <button onclick="sendMessage()" class="btn-brand px-4 py-3" id="sendBtn">
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentUser, socket;
+let activeChatUser = null;
+let typingTimeout = null;
+const chatUserId = {{ chat_user_id if chat_user_id else 'null' }};
+
+async function initChat() {
+  currentUser = await checkAuth();
+  if (!currentUser) { window.location.href = '/login'; return; }
+
+  await loadConversations();
+  connectSocket();
+
+  if (chatUserId) {
+    const user = await API.get(`/users/${chatUserId}`);
+    if (user.user) openChat(user.user);
+  }
+}
+
+function connectSocket() {
+  socket = io({ auth: { token: localStorage.getItem('pathick_token') } });
+  socket.on('new_message', (msg) => {
+    if (activeChatUser && (msg.sender_id === activeChatUser.id || msg.receiver_id === activeChatUser.id)) {
+      appendMessage(msg);
+      scrollToBottom();
+    }
+    if (msg.sender_id !== currentUser.id) {
+      showToast(`New message from ${msg.sender_username}`, 'info');
+      loadConversations();
+    }
+  });
+  socket.on('user_typing', (data) => {
+    if (activeChatUser && data.user_id === activeChatUser.id) {
+      if (data.is_typing) {
+        document.getElementById('typingIndicator').classList.remove('hidden');
+        document.getElementById('typingName').textContent = data.username;
+      } else {
+        document.getElementById('typingIndicator').classList.add('hidden');
+      }
+    }
+  });
+}
+
+async function loadConversations() {
+  const data = await API.get('/chat/conversations');
+  const list = document.getElementById('conversationList');
+
+  if (!data.conversations?.length) {
+    list.innerHTML = `<div class="p-4"><p class="text-slate-500 text-sm mb-3">No conversations yet.</p><p class="text-slate-600 text-xs">Find travelers on the <a href="/map" class="text-brand-400 hover:underline">Live Map</a> and start chatting!</p></div>`;
+    return;
+  }
+
+  list.innerHTML = data.conversations.map(c => `
+    <div class="conv-item flex items-center gap-3 p-4 cursor-pointer hover:bg-white/5 border-b border-white/5 transition-all ${activeChatUser?.id === c.user.id ? 'bg-white/5 border-l-2 border-brand-500' : ''}"
+         onclick="openChat(${JSON.stringify(c.user).replace(/"/g, '&quot;')})">
+      <div class="relative flex-shrink-0">
+        <div class="w-11 h-11 rounded-full bg-gradient-to-br from-brand-400 to-indigo-500 flex items-center justify-center font-bold">
+          ${c.user.username[0].toUpperCase()}
+        </div>
+        ${c.user.is_online ? '<span class="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-surface-2 rounded-full"></span>' : ''}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between">
+          <span class="font-semibold text-sm">${c.user.username}</span>
+          ${c.last_message ? `<span class="text-xs text-slate-600">${formatTime(c.last_message.timestamp)}</span>` : ''}
+        </div>
+        <div class="flex items-center justify-between mt-0.5">
+          <span class="text-xs text-slate-500 truncate max-w-36">${c.last_message?.content || ''}</span>
+          ${c.unread_count > 0 ? `<span class="w-5 h-5 bg-brand-500 rounded-full text-xs flex items-center justify-center font-bold flex-shrink-0">${c.unread_count}</span>` : ''}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function openChat(user) {
+  activeChatUser = user;
+  document.getElementById('noChatSelected').classList.add('hidden');
+  document.getElementById('activeChatArea').classList.remove('hidden');
+  document.getElementById('chatAvatar').textContent = user.username[0].toUpperCase();
+  document.getElementById('chatUsername').textContent = user.username;
+  document.getElementById('chatStatus').textContent = user.is_online ? '🟢 Online' : `${user.role}`;
+  document.getElementById('viewProfileBtn').href = `/chat/${user.id}`;
+
+  await loadMessages(user.id);
+  document.getElementById('messageInput').focus();
+  loadConversations();
+}
+
+async function loadMessages(userId) {
+  const container = document.getElementById('messagesContainer');
+  container.innerHTML = '<div class="text-center text-slate-600 text-xs py-4">Loading...</div>';
+
+  const data = await API.get(`/chat/messages/${userId}`);
+  if (!data.messages?.length) {
+    container.innerHTML = `<div class="text-center py-8">
+      <i class="fa-regular fa-comment-dots text-3xl text-slate-700 block mb-2"></i>
+      <p class="text-slate-500 text-sm">No messages yet. Say hello! 👋</p>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = '';
+  let prevDate = null;
+  data.messages.forEach(msg => {
+    const msgDate = new Date(msg.timestamp).toLocaleDateString();
+    if (msgDate !== prevDate) {
+      const dateDiv = document.createElement('div');
+      dateDiv.className = 'text-center text-xs text-slate-600 my-3';
+      dateDiv.textContent = msgDate;
+      container.appendChild(dateDiv);
+      prevDate = msgDate;
+    }
+    appendMessage(msg);
+  });
+  scrollToBottom();
+}
+
+function appendMessage(msg) {
+  const container = document.getElementById('messagesContainer');
+  const isMe = msg.sender_id === currentUser.id;
+  const div = document.createElement('div');
+  div.className = `flex ${isMe ? 'justify-end' : 'justify-start'} gap-2`;
+  div.innerHTML = `
+    ${!isMe ? `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-brand-400 to-indigo-500 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-1">${(msg.sender_username || '?')[0].toUpperCase()}</div>` : ''}
+    <div class="max-w-xs lg:max-w-md">
+      <div class="px-4 py-2.5 rounded-2xl text-sm ${isMe ? 'bg-brand-500/30 text-white rounded-br-sm' : 'bg-white/8 text-slate-200 rounded-bl-sm'}">
+        ${escapeHtml(msg.content)}
+      </div>
+      <div class="text-xs text-slate-600 mt-1 ${isMe ? 'text-right' : 'text-left'} flex items-center gap-1 ${isMe ? 'justify-end' : ''}">
+        ${formatTime(msg.timestamp)}
+        ${isMe ? (msg.read_status ? '<i class="fa-solid fa-check-double text-brand-400"></i>' : '<i class="fa-solid fa-check text-slate-600"></i>') : ''}
+      </div>
+    </div>`;
+  container.appendChild(div);
+}
+
+async function sendMessage() {
+  const input = document.getElementById('messageInput');
+  const content = input.value.trim();
+  if (!content || !activeChatUser) return;
+
+  input.value = '';
+  socket?.emit('send_message', {
+    token: localStorage.getItem('pathick_token'),
+    receiver_id: activeChatUser.id,
+    content
+  });
+}
+
+// Typing indicator
+document.getElementById('messageInput')?.addEventListener('input', () => {
+  if (!socket || !activeChatUser) return;
+  socket.emit('typing', {
+    token: localStorage.getItem('pathick_token'),
+    receiver_id: activeChatUser.id,
+    is_typing: true
+  });
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(() => {
+    socket.emit('typing', {
+      token: localStorage.getItem('pathick_token'),
+      receiver_id: activeChatUser.id,
+      is_typing: false
+    });
+  }, 2000);
+});
+
+// Enter to send
+document.getElementById('messageInput')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+function closeChat() {
+  activeChatUser = null;
+  document.getElementById('noChatSelected').classList.remove('hidden');
+  document.getElementById('activeChatArea').classList.add('hidden');
+}
+
+async function searchUsers(query) {
+  if (!query.trim()) { loadConversations(); return; }
+  const data = await API.get('/users/');
+  const filtered = (data.users || []).filter(u =>
+    u.username.toLowerCase().includes(query.toLowerCase()) && u.id !== currentUser.id
+  );
+  const list = document.getElementById('conversationList');
+  list.innerHTML = filtered.map(u => `
+    <div class="flex items-center gap-3 p-4 cursor-pointer hover:bg-white/5 border-b border-white/5 transition-all"
+         onclick="openChat(${JSON.stringify(u).replace(/"/g, '&quot;')})">
+      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-indigo-500 flex items-center justify-center font-bold">${u.username[0].toUpperCase()}</div>
+      <div>
+        <div class="font-semibold text-sm">${u.username}</div>
+        <div class="text-xs text-slate-500 capitalize">${u.role}</div>
+      </div>
+    </div>`).join('') || '<div class="p-4 text-slate-500 text-sm">No users found</div>';
+}
+
+function scrollToBottom() {
+  const c = document.getElementById('messagesContainer');
+  c.scrollTop = c.scrollHeight;
+}
+
+function formatTime(ts) {
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+initChat();
+</script>
+{% endblock %}

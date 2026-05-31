@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Login — Pathick{% endblock %}
+{% block navbar %}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex">
+  <!-- Left panel -->
+  <div class="hidden lg:flex flex-col justify-between w-1/2 p-12 relative overflow-hidden" style="background: radial-gradient(ellipse at 30% 50%, rgba(20,184,166,0.2) 0%, transparent 70%), var(--surface-2);">
+    <div class="absolute inset-0 overflow-hidden pointer-events-none">
+      <div class="absolute top-0 right-0 w-96 h-96 bg-brand-500/5 rounded-full blur-3xl"></div>
+      <svg class="absolute inset-0 w-full h-full opacity-5"><defs><pattern id="grid2" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" stroke-width="0.5"/></pattern></defs><rect width="100%" height="100%" fill="url(#grid2)"/></svg>
+    </div>
+    <a href="/" class="flex items-center gap-2 relative z-10">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
+        <i class="fa-solid fa-compass text-white"></i>
+      </div>
+      <span class="font-display font-bold text-2xl">Pathick</span>
+    </a>
+    <div class="relative z-10">
+      <div id="panelMap" class="rounded-2xl mb-8" style="height:300px;"></div>
+      <h2 class="font-display text-3xl font-bold mb-3">Welcome Back, Explorer</h2>
+      <p class="text-slate-400 leading-relaxed">Your travel community is waiting. Live maps, real-time chat, and thousands of travelers online right now.</p>
+    </div>
+    <div class="flex items-center gap-3 text-slate-500 text-sm relative z-10">
+      <span class="online-dot"></span>
+      <span>1,200+ travelers online</span>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div class="flex-1 flex items-center justify-center p-8">
+    <div class="w-full max-w-md">
+      <!-- Mobile logo -->
+      <a href="/" class="flex items-center gap-2 mb-10 lg:hidden">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
+          <i class="fa-solid fa-compass text-white text-sm"></i>
+        </div>
+        <span class="font-display font-bold text-xl">Pathick</span>
+      </a>
+
+      <h1 class="font-display text-3xl font-bold mb-2">Sign In</h1>
+      <p class="text-slate-400 mb-8">Don't have an account? <a href="/signup" class="text-brand-400 hover:underline">Create one free</a></p>
+
+      <form id="loginForm" class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Email Address</label>
+          <input type="email" id="email" class="input-field" placeholder="you@example.com" required />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Password</label>
+          <div class="relative">
+            <input type="password" id="password" class="input-field pr-12" placeholder="••••••••" required />
+            <button type="button" onclick="togglePassword()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+              <i class="fa-regular fa-eye" id="eyeIcon"></i>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-brand w-full justify-center py-3 text-base" id="loginBtn">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In
+        </button>
+      </form>
+
+      <div class="mt-6 text-center">
+        <p class="text-slate-500 text-sm">By continuing, you agree to our Terms of Service and Privacy Policy.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Panel map
+const panelMap = L.map('panelMap', { zoomControl: false, attributionControl: false }).setView([20, 0], 1);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(panelMap);
+panelMap.dragging.disable();
+
+function togglePassword() {
+  const input = document.getElementById('password');
+  const icon = document.getElementById('eyeIcon');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.className = 'fa-regular fa-eye-slash';
+  } else {
+    input.type = 'password';
+    icon.className = 'fa-regular fa-eye';
+  }
+}
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Signing in...';
+  btn.disabled = true;
+
+  const data = await API.post('/auth/login', {
+    email: document.getElementById('email').value,
+    password: document.getElementById('password').value
+  });
+
+  if (data.token) {
+    localStorage.setItem('pathick_token', data.token);
+    showToast('Welcome back, ' + data.user.username + '!', 'success');
+    setTimeout(() => window.location.href = '/dashboard', 1000);
+  } else {
+    showToast(data.error || 'Login failed', 'error');
+    btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In';
+    btn.disabled = false;
+  }
+});
+
+// Redirect if already logged in
+checkAuth().then(user => { if (user) window.location.href = '/dashboard'; });
+</script>
+{% endblock %}

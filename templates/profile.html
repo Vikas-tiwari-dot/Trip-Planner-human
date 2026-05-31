@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}Profile — Pathick{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-10">
+  <!-- Profile header -->
+  <div class="card p-8 mb-6 relative overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-br from-brand-500/8 to-indigo-500/5 pointer-events-none"></div>
+    <div class="flex flex-col md:flex-row items-start md:items-center gap-6 relative z-10">
+      <!-- Avatar -->
+      <div class="relative">
+        <div class="w-24 h-24 rounded-2xl bg-gradient-to-br from-brand-400 to-indigo-500 flex items-center justify-center text-3xl font-bold font-display" id="avatarDisplay">?</div>
+        <span class="absolute -bottom-1 -right-1 w-5 h-5 bg-green-400 border-2 border-surface-2 rounded-full hidden" id="onlineDot"></span>
+      </div>
+
+      <div class="flex-1">
+        <div class="flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <h1 class="font-display text-3xl font-bold" id="profileUsername">Loading...</h1>
+            <div class="flex items-center gap-3 mt-1">
+              <span class="text-sm text-slate-400" id="profileEmail">—</span>
+              <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-brand-500/15 text-brand-400" id="profileRole">—</span>
+            </div>
+          </div>
+          <button onclick="showEditModal()" class="btn-ghost text-sm">
+            <i class="fa-solid fa-pen-to-square mr-2"></i>Edit Profile
+          </button>
+        </div>
+        <p class="text-slate-400 text-sm mt-3 max-w-lg" id="profileBio">No bio yet.</p>
+
+        <!-- Guide extras -->
+        <div id="guideExtras" class="hidden mt-3 flex flex-wrap gap-3">
+          <span class="inline-flex items-center gap-1.5 text-xs bg-white/5 rounded-lg px-3 py-1.5 text-slate-300" id="expertiseTag">
+            <i class="fa-solid fa-star text-yellow-400"></i> —
+          </span>
+          <span class="inline-flex items-center gap-1.5 text-xs bg-white/5 rounded-lg px-3 py-1.5 text-slate-300" id="languagesTag">
+            <i class="fa-solid fa-language text-brand-400"></i> —
+          </span>
+          <span class="inline-flex items-center gap-1.5 text-xs bg-white/5 rounded-lg px-3 py-1.5 text-slate-300" id="rateTag">
+            <i class="fa-solid fa-dollar-sign text-green-400"></i> —/hr
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-white/5 relative z-10">
+      <div class="text-center">
+        <div class="font-display text-2xl font-bold text-brand-400" id="statTrips">0</div>
+        <div class="text-xs text-slate-500 mt-1">Trips</div>
+      </div>
+      <div class="text-center">
+        <div class="font-display text-2xl font-bold text-brand-400" id="statDist">0</div>
+        <div class="text-xs text-slate-500 mt-1">KM Traveled</div>
+      </div>
+      <div class="text-center">
+        <div class="font-display text-2xl font-bold text-brand-400" id="statMember">—</div>
+        <div class="text-xs text-slate-500 mt-1">Member Since</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-6">
+    <!-- Trip History -->
+    <div class="card p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-display font-bold text-lg">Trip History</h2>
+        <a href="/routes" class="text-brand-400 text-xs hover:underline">Plan new trip →</a>
+      </div>
+      <div id="tripHistory" class="space-y-3">
+        <div class="text-slate-500 text-sm">Loading trips...</div>
+      </div>
+    </div>
+
+    <!-- Location & Settings -->
+    <div class="space-y-5">
+      <div class="card p-6">
+        <h2 class="font-display font-bold text-lg mb-4">Location</h2>
+        <div id="currentLocation" class="text-slate-400 text-sm mb-4">
+          <i class="fa-solid fa-location-dot mr-2 text-slate-600"></i>Not shared yet
+        </div>
+        <button onclick="shareLocation()" class="btn-brand w-full justify-center text-sm py-2.5" id="locationBtn">
+          <i class="fa-solid fa-location-crosshairs"></i> Update Location
+        </button>
+      </div>
+
+      <div class="card p-6" id="guideSettingsCard">
+        <h2 class="font-display font-bold text-lg mb-4">Guide Settings</h2>
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="font-medium text-sm">Available for Bookings</div>
+            <div class="text-slate-500 text-xs mt-0.5">Let travelers find and contact you</div>
+          </div>
+          <button onclick="toggleAvailability()" id="availToggle" class="relative w-12 h-6 rounded-full transition-all bg-brand-500">
+            <span class="absolute top-1 right-1 w-4 h-4 rounded-full bg-white transition-all"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="card w-full max-w-lg max-h-screen overflow-y-auto">
+    <div class="flex items-center justify-between p-5 border-b border-white/5">
+      <h3 class="font-display font-bold text-lg">Edit Profile</h3>
+      <button onclick="closeEditModal()" class="text-slate-500 hover:text-white">
+        <i class="fa-solid fa-xmark text-xl"></i>
+      </button>
+    </div>
+    <form id="editForm" class="p-5 space-y-4" onsubmit="saveProfile(event)">
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-2">Bio</label>
+        <textarea id="editBio" class="input-field resize-none" rows="3" placeholder="Tell other travelers about yourself..."></textarea>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-2">Location Name</label>
+        <input type="text" id="editLocation" class="input-field" placeholder="e.g. Mumbai, India" />
+      </div>
+      <div id="editGuideFields" class="hidden space-y-4">
+        <hr class="border-white/10">
+        <p class="text-xs text-brand-400 font-semibold uppercase tracking-wider">Guide Settings</p>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Expertise</label>
+          <input type="text" id="editExpertise" class="input-field" placeholder="e.g. Heritage tours, Trekking" />
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Languages</label>
+            <input type="text" id="editLanguages" class="input-field" placeholder="English, Hindi" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Hourly Rate (USD)</label>
+            <input type="number" id="editRate" class="input-field" placeholder="15" />
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="btn-brand flex-1 justify-center py-3">
+          <i class="fa-solid fa-floppy-disk"></i> Save Changes
+        </button>
+        <button type="button" onclick="closeEditModal()" class="btn-ghost py-3 px-6">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentUser;
+let isAvailable = true;
+
+async function initProfile() {
+  currentUser = await checkAuth();
+  if (!currentUser) { window.location.href = '/login'; return; }
+
+  renderProfile(currentUser);
+  loadTrips();
+}
+
+function renderProfile(user) {
+  document.getElementById('avatarDisplay').textContent = user.username[0].toUpperCase();
+  document.getElementById('profileUsername').textContent = user.username;
+  document.getElementById('profileEmail').textContent = user.email;
+  document.getElementById('profileRole').textContent = user.role.charAt(0).toUpperCase() + user.role.slice(1);
+  document.getElementById('profileBio').textContent = user.bio || 'No bio yet. Click Edit Profile to add one.';
+
+  if (user.is_online) document.getElementById('onlineDot').classList.remove('hidden');
+
+  const joined = new Date(user.created_at);
+  document.getElementById('statMember').textContent = joined.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+  if (user.latitude && user.longitude) {
+    document.getElementById('currentLocation').innerHTML = `<i class="fa-solid fa-location-dot mr-2 text-brand-400"></i>${user.location_name || `${user.latitude.toFixed(4)}, ${user.longitude.toFixed(4)}`}`;
+  }
+
+  if (user.role === 'guide') {
+    document.getElementById('guideExtras').classList.remove('hidden');
+    document.getElementById('guideSettingsCard').classList.remove('hidden');
+    if (user.expertise) document.getElementById('expertiseTag').innerHTML = `<i class="fa-solid fa-star text-yellow-400"></i>${user.expertise}`;
+    if (user.languages) document.getElementById('languagesTag').innerHTML = `<i class="fa-solid fa-language text-brand-400"></i>${user.languages}`;
+    if (user.hourly_rate) document.getElementById('rateTag').innerHTML = `<i class="fa-solid fa-dollar-sign text-green-400"></i>$${user.hourly_rate}/hr`;
+    isAvailable = user.is_available;
+    updateAvailToggle();
+  } else {
+    document.getElementById('guideSettingsCard')?.classList.add('hidden');
+  }
+}
+
+async function loadTrips() {
+  const data = await API.get('/trips/');
+  const trips = data.trips || [];
+  document.getElementById('statTrips').textContent = trips.length;
+  const totalDist = trips.reduce((s, t) => s + (t.distance || 0), 0);
+  document.getElementById('statDist').textContent = Math.round(totalDist);
+
+  const container = document.getElementById('tripHistory');
+  if (!trips.length) {
+    container.innerHTML = `<div class="text-center py-6">
+      <i class="fa-solid fa-plane-slash text-slate-700 text-3xl block mb-2"></i>
+      <p class="text-slate-500 text-sm">No trips yet. <a href="/routes" class="text-brand-400 hover:underline">Plan your first route!</a></p>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = trips.map(t => `
+    <div class="flex items-start gap-3 p-3 rounded-xl bg-white/3 hover:bg-white/5 transition-all">
+      <div class="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center ${t.status === 'active' ? 'bg-brand-500/20' : 'bg-white/5'}">
+        <i class="fa-solid fa-plane-departure ${t.status === 'active' ? 'text-brand-400' : 'text-slate-500'} text-sm"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between">
+          <span class="font-semibold text-sm truncate">${t.start_location?.split(',')[0] || 'Unknown'} → ${t.destination?.split(',')[0] || '?'}</span>
+          <span class="text-xs px-2 py-0.5 rounded-full ${t.status === 'active' ? 'bg-brand-500/15 text-brand-400' : 'bg-white/5 text-slate-500'}">${t.status}</span>
+        </div>
+        <div class="text-xs text-slate-500 mt-0.5">
+          ${t.distance ? `${t.distance.toFixed(1)} km` : '—'} •
+          ${new Date(t.start_time).toLocaleDateString()}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function showEditModal() {
+  document.getElementById('editBio').value = currentUser.bio || '';
+  document.getElementById('editLocation').value = currentUser.location_name || '';
+  if (currentUser.role === 'guide') {
+    document.getElementById('editGuideFields').classList.remove('hidden');
+    document.getElementById('editExpertise').value = currentUser.expertise || '';
+    document.getElementById('editLanguages').value = currentUser.languages || '';
+    document.getElementById('editRate').value = currentUser.hourly_rate || '';
+  }
+  document.getElementById('editModal').classList.remove('hidden');
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').classList.add('hidden');
+}
+
+async function saveProfile(e) {
+  e.preventDefault();
+  const payload = {
+    bio: document.getElementById('editBio').value,
+    location_name: document.getElementById('editLocation').value,
+  };
+  if (currentUser.role === 'guide') {
+    payload.expertise = document.getElementById('editExpertise').value;
+    payload.languages = document.getElementById('editLanguages').value;
+    payload.hourly_rate = parseFloat(document.getElementById('editRate').value) || 0;
+  }
+
+  const data = await API.put('/auth/update-profile', payload);
+  if (data.user) {
+    currentUser = data.user;
+    renderProfile(data.user);
+    closeEditModal();
+    showToast('Profile updated!', 'success');
+  } else {
+    showToast(data.error || 'Failed to update', 'error');
+  }
+}
+
+async function shareLocation() {
+  if (!navigator.geolocation) { showToast('Geolocation not supported', 'error'); return; }
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const { latitude, longitude } = pos.coords;
+    await API.post('/users/update-location', { latitude, longitude });
+    document.getElementById('currentLocation').innerHTML = `<i class="fa-solid fa-location-dot mr-2 text-brand-400"></i>${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+    showToast('Location updated!', 'success');
+  }, () => showToast('Could not get location', 'error'));
+}
+
+async function toggleAvailability() {
+  isAvailable = !isAvailable;
+  await API.put('/auth/update-profile', { is_available: isAvailable });
+  updateAvailToggle();
+  showToast(isAvailable ? 'You are now available' : 'You are now unavailable', 'success');
+}
+
+function updateAvailToggle() {
+  const btn = document.getElementById('availToggle');
+  if (btn) {
+    btn.className = `relative w-12 h-6 rounded-full transition-all ${isAvailable ? 'bg-brand-500' : 'bg-white/10'}`;
+    const dot = btn.querySelector('span');
+    if (dot) dot.className = `absolute top-1 ${isAvailable ? 'right-1' : 'left-1'} w-4 h-4 rounded-full bg-white transition-all`;
+  }
+}
+
+initProfile();
+</script>
+{% endblock %}

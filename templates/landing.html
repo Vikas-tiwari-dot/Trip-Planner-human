@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% block title %}Pathick — AI-Powered Travel Companion{% endblock %}
+
+{% block head %}
+<style>
+  .hero-bg {
+    background: radial-gradient(ellipse at 60% 0%, rgba(20,184,166,0.15) 0%, transparent 60%),
+                radial-gradient(ellipse at 10% 80%, rgba(99,102,241,0.1) 0%, transparent 50%),
+                var(--surface);
+  }
+  .feature-card:hover { transform: translateY(-4px); }
+  .destination-card { position: relative; overflow: hidden; border-radius: 16px; }
+  .destination-card img { transition: transform 0.5s ease; }
+  .destination-card:hover img { transform: scale(1.08); }
+  .destination-overlay {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    padding: 24px 20px 20px;
+  }
+  .stat-card {
+    background: linear-gradient(135deg, rgba(20,184,166,0.1), rgba(20,184,166,0.03));
+    border: 1px solid rgba(20,184,166,0.2);
+  }
+  .world-map-bg {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 500'%3E%3Cpath fill='none' stroke='rgba(20,184,166,0.15)' stroke-width='0.5' d='M0 250 Q250 100 500 250 Q750 400 1000 250'/%3E%3C/svg%3E");
+    background-size: cover;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-bg min-h-screen flex items-center relative overflow-hidden">
+  <!-- Animated background elements -->
+  <div class="absolute inset-0 overflow-hidden pointer-events-none">
+    <div class="absolute top-20 right-20 w-96 h-96 bg-brand-500/5 rounded-full blur-3xl animate-pulse-slow"></div>
+    <div class="absolute bottom-20 left-10 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl animate-pulse-slow" style="animation-delay:1.5s"></div>
+    <!-- Grid lines -->
+    <svg class="absolute inset-0 w-full h-full opacity-5" xmlns="http://www.w3.org/2000/svg">
+      <defs><pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M 60 0 L 0 0 0 60" fill="none" stroke="white" stroke-width="0.5"/></pattern></defs>
+      <rect width="100%" height="100%" fill="url(#grid)"/>
+    </svg>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-6 py-20 grid lg:grid-cols-2 gap-16 items-center relative z-10">
+    <div>
+      <div class="inline-flex items-center gap-2 glass rounded-full px-4 py-2 text-sm text-brand-400 mb-8">
+        <span class="online-dot"></span>
+        <span>1,200+ travelers online now</span>
+      </div>
+      <h1 class="font-display text-5xl lg:text-7xl font-extrabold leading-none mb-6">
+        Travel <span class="gradient-text">Smarter</span>,<br>Connect <span class="gradient-text">Deeper</span>
+      </h1>
+      <p class="text-slate-400 text-xl leading-relaxed mb-10 max-w-lg">
+        Pathick combines live location sharing, real-time traveler chat, AI route planning, and local guides into one seamless travel companion.
+      </p>
+      <div class="flex flex-wrap gap-4">
+        <a href="/signup" class="btn-brand text-base px-8 py-3">
+          <i class="fa-solid fa-rocket"></i> Start Exploring Free
+        </a>
+        <a href="/map" class="btn-ghost text-base px-8 py-3">
+          <i class="fa-solid fa-map"></i> View Live Map
+        </a>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid grid-cols-3 gap-4 mt-14">
+        <div class="stat-card rounded-xl p-4 text-center">
+          <div class="font-display text-2xl font-bold text-brand-400">50K+</div>
+          <div class="text-slate-500 text-xs mt-1">Travelers</div>
+        </div>
+        <div class="stat-card rounded-xl p-4 text-center">
+          <div class="font-display text-2xl font-bold text-brand-400">120+</div>
+          <div class="text-slate-500 text-xs mt-1">Countries</div>
+        </div>
+        <div class="stat-card rounded-xl p-4 text-center">
+          <div class="font-display text-2xl font-bold text-brand-400">5K+</div>
+          <div class="text-slate-500 text-xs mt-1">Local Guides</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hero visual - Live map preview -->
+    <div class="relative">
+      <div class="card p-2 shadow-2xl">
+        <div class="relative">
+          <div id="heroMap" class="rounded-xl" style="height: 420px;"></div>
+          <!-- Overlay info cards -->
+          <div class="absolute top-4 left-4 glass rounded-xl p-3 text-sm max-w-48">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="online-dot"></span>
+              <span class="font-semibold">Live Travelers</span>
+            </div>
+            <div class="text-slate-400 text-xs">3 travelers nearby</div>
+          </div>
+          <div class="absolute bottom-4 right-4 glass rounded-xl p-3 text-sm">
+            <div class="text-slate-400 text-xs mb-1">Route ETA</div>
+            <div class="font-semibold text-brand-400">2h 15min</div>
+            <div class="text-slate-500 text-xs">142 km</div>
+          </div>
+        </div>
+      </div>
+      <!-- Floating notification -->
+      <div class="absolute -top-4 -right-4 glass rounded-xl p-3 text-sm animate-bounce shadow-xl">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-indigo-500 flex items-center justify-center text-xs font-bold">R</div>
+          <div>
+            <div class="font-semibold text-xs">Vikas is nearby!</div>
+            <div class="text-slate-500 text-xs">2.3 km away</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features Section -->
+<section class="py-24 bg-surface-100">
+  <div class="max-w-7xl mx-auto px-6">
+    <div class="text-center mb-16">
+      <h2 class="font-display text-4xl font-bold mb-4">Everything You Need to <span class="gradient-text">Travel Well</span></h2>
+      <p class="text-slate-400 text-lg max-w-2xl mx-auto">From discovery to destination — Pathick has every feature a modern traveler needs.</p>
+    </div>
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% set features = [
+        ('fa-location-dot', 'brand-400', 'Live Location Sharing', 'Share your position in real-time with friends and family. See other travelers on an interactive map updated every 30 seconds.'),
+        ('fa-message', 'indigo-400', 'Real-Time Chat', 'Connect with fellow travelers and local guides. Private messaging with typing indicators, read receipts, and message history.'),
+        ('fa-route', 'brand-400', 'Smart Route Planning', 'Plan routes with OpenStreetMap & OSRM. Get turn-by-turn directions, distance calculations, and beautiful Folium map exports.'),
+        ('fa-user-tie', 'purple-400', 'Local Guides', 'Connect with certified local guides. Browse by expertise, language, and availability. Get authentic local experiences.'),
+        ('fa-plane-departure', 'brand-400', 'Trip Detection', 'Automatic trip detection when you travel beyond 50km. Track your journey history and revisit past adventures.'),
+        ('fa-wand-magic-sparkles', 'yellow-400', 'AI Itinerary (Coming Soon)', 'AI-powered travel itineraries tailored to your interests, budget, and travel style. Smart hotel and restaurant recommendations.'),
+      ] %}
+      {% for icon, color, title, desc in features %}
+      <div class="card p-6 feature-card transition-all duration-300">
+        <div class="w-12 h-12 rounded-xl bg-{{ color }}/10 flex items-center justify-center mb-4">
+          <i class="fa-solid {{ icon }} text-{{ color }} text-xl"></i>
+        </div>
+        <h3 class="font-display font-bold text-lg mb-2">{{ title }}</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">{{ desc }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- Popular Destinations -->
+<section class="py-24">
+  <div class="max-w-7xl mx-auto px-6">
+    <div class="flex items-end justify-between mb-12">
+      <div>
+        <h2 class="font-display text-4xl font-bold mb-3">Popular <span class="gradient-text">Destinations</span></h2>
+        <p class="text-slate-400">Join thousands of travelers exploring these spots</p>
+      </div>
+      <a href="/map" class="btn-ghost text-sm">View All <i class="fa-solid fa-arrow-right ml-2"></i></a>
+    </div>
+    <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+      {% set destinations = [
+        ('Bali, Indonesia', '2,341 travelers', '#14b8a6'),
+        ('Rajasthan, India', '1,892 travelers', '#8b5cf6'),
+        ('Santorini, Greece', '3,108 travelers', '#3b82f6'),
+        ('Tokyo, Japan', '4,220 travelers', '#f59e0b'),
+      ] %}
+      {% for name, count, color in destinations %}
+      <div class="destination-card h-64 card cursor-pointer group" style="background: linear-gradient(135deg, {{ color }}22, {{ color }}11)">
+        <div class="h-full flex flex-col justify-end p-5">
+          <div class="destination-overlay">
+            <h3 class="font-display font-bold text-lg">{{ name }}</h3>
+            <div class="flex items-center gap-2 mt-1">
+              <span class="online-dot" style="width:6px;height:6px;"></span>
+              <span class="text-slate-300 text-xs">{{ count }}</span>
+            </div>
+          </div>
+          <!-- Decorative icon -->
+          <div class="absolute top-5 right-5 w-10 h-10 rounded-full glass flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <i class="fa-solid fa-arrow-right text-sm"></i>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- How it works -->
+<section class="py-24 bg-surface-100">
+  <div class="max-w-7xl mx-auto px-6">
+    <div class="text-center mb-16">
+      <h2 class="font-display text-4xl font-bold mb-4">Get Started in <span class="gradient-text">3 Steps</span></h2>
+    </div>
+    <div class="grid md:grid-cols-3 gap-8 relative">
+      <div class="hidden md:block absolute top-8 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-brand-500/30 to-transparent"></div>
+      {% set steps = [
+        ('1', 'fa-user-plus', 'Create Account', 'Sign up as a traveler or guide. Set up your profile and tell us about your travel interests.'),
+        ('2', 'fa-location-crosshairs', 'Share Location', 'Enable location sharing and appear on the live map. Connect with travelers nearby instantly.'),
+        ('3', 'fa-compass', 'Start Exploring', 'Chat, plan routes, find guides, and embark on unforgettable journeys with your new travel community.')
+      ] %}
+      {% for num, icon, title, desc in steps %}
+      <div class="card p-8 text-center relative">
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-400/20 to-brand-600/20 border border-brand-500/20 flex items-center justify-center mx-auto mb-5">
+          <i class="fa-solid {{ icon }} text-brand-400 text-2xl"></i>
+        </div>
+        <div class="absolute top-6 right-6 font-display text-5xl font-extrabold text-white/5">{{ num }}</div>
+        <h3 class="font-display font-bold text-xl mb-3">{{ title }}</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">{{ desc }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- Testimonials -->
+<section class="py-24">
+  <div class="max-w-7xl mx-auto px-6">
+    <div class="text-center mb-16">
+      <h2 class="font-display text-4xl font-bold mb-4">Travelers <span class="gradient-text">Love Pathick</span></h2>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6">
+      {% set testimonials = [
+        ('Priya S.', 'Solo Traveler', 'Pathick changed how I travel solo. I can see other travelers nearby and connect instantly. Felt safe the entire time!', 5),
+        ('Marco B.', 'Digital Nomad', 'The route planner is incredible. I use it every day to plan my next move. The folium map export is a great touch.', 5),
+        ('Yuki T.', 'Adventure Guide', 'As a guide, Pathick helped me connect with 3x more travelers. The availability status and profile system is perfect.', 5),
+      ] %}
+      {% for name, role, quote, stars in testimonials %}
+      <div class="card p-6">
+        <div class="flex gap-1 mb-4">
+          {% for i in range(stars) %}<i class="fa-solid fa-star text-yellow-400 text-sm"></i>{% endfor %}
+        </div>
+        <p class="text-slate-300 text-sm leading-relaxed mb-5 italic">"{{ quote }}"</p>
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-indigo-500 flex items-center justify-center font-bold text-sm">{{ name[0] }}</div>
+          <div>
+            <div class="font-semibold text-sm">{{ name }}</div>
+            <div class="text-slate-500 text-xs">{{ role }}</div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="py-24 bg-surface-100">
+  <div class="max-w-3xl mx-auto px-6 text-center">
+    <div class="card p-12 relative overflow-hidden">
+      <div class="absolute inset-0 bg-gradient-to-br from-brand-500/10 to-indigo-500/10 pointer-events-none"></div>
+      <i class="fa-solid fa-compass text-5xl text-brand-400 mb-6 block relative z-10"></i>
+      <h2 class="font-display text-4xl font-bold mb-4 relative z-10">Ready to Explore the World?</h2>
+      <p class="text-slate-400 mb-8 text-lg relative z-10">Join 50,000+ travelers using Pathick to make every journey unforgettable.</p>
+      <a href="/signup" class="btn-brand text-lg px-10 py-4 relative z-10">
+        <i class="fa-solid fa-rocket"></i> Start for Free
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="border-t border-white/5 py-12">
+  <div class="max-w-7xl mx-auto px-6">
+    <div class="grid md:grid-cols-4 gap-8 mb-10">
+      <div>
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
+            <i class="fa-solid fa-compass text-white text-sm"></i>
+          </div>
+          <span class="font-display font-bold text-xl">Pathick</span>
+        </div>
+        <p class="text-slate-500 text-sm">Your AI-powered travel companion for smarter, safer adventures.</p>
+      </div>
+      <div>
+        <h4 class="font-semibold mb-4">Platform</h4>
+        <ul class="space-y-2 text-slate-500 text-sm">
+          <li><a href="/map" class="hover:text-brand-400 transition-colors">Live Map</a></li>
+          <li><a href="/chat" class="hover:text-brand-400 transition-colors">Chat</a></li>
+          <li><a href="/routes" class="hover:text-brand-400 transition-colors">Route Planner</a></li>
+          <li><a href="/guides" class="hover:text-brand-400 transition-colors">Find Guides</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-semibold mb-4">Account</h4>
+        <ul class="space-y-2 text-slate-500 text-sm">
+          <li><a href="/login" class="hover:text-brand-400 transition-colors">Login</a></li>
+          <li><a href="/signup" class="hover:text-brand-400 transition-colors">Sign Up</a></li>
+          <li><a href="/profile" class="hover:text-brand-400 transition-colors">Profile</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-semibold mb-4">Connect</h4>
+        <div class="flex gap-3">
+          <a href="#" class="w-9 h-9 glass rounded-lg flex items-center justify-center hover:border-brand-500/50 transition-colors">
+            <i class="fa-brands fa-twitter text-sm text-slate-400"></i>
+          </a>
+          <a href="#" class="w-9 h-9 glass rounded-lg flex items-center justify-center hover:border-brand-500/50 transition-colors">
+            <i class="fa-brands fa-instagram text-sm text-slate-400"></i>
+          </a>
+          <a href="#" class="w-9 h-9 glass rounded-lg flex items-center justify-center hover:border-brand-500/50 transition-colors">
+            <i class="fa-brands fa-github text-sm text-slate-400"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+      <p class="text-slate-600 text-sm">© 2025 Pathick. Built with ❤️ for travelers.</p>
+      <p class="text-slate-600 text-sm">Powered by OpenStreetMap, OSRM & Flask-SocketIO</p>
+    </div>
+  </div>
+</footer>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Hero map initialization
+const heroMap = L.map('heroMap', { zoomControl: false, attributionControl: false }).setView([20.5937, 78.9629], 4);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  maxZoom: 19
+}).addTo(heroMap);
+
+// Add sample markers
+const sampleMarkers = [
+  [28.6139, 77.2090, 'Delhi, India'],
+  [19.0760, 72.8777, 'Mumbai, India'],
+  [13.0827, 80.2707, 'Chennai, India'],
+  [12.9716, 77.5946, 'Bangalore, India'],
+  [22.5726, 88.3639, 'Kolkata, India'],
+];
+const greenIcon = L.divIcon({
+  html: `<div style="width:12px;height:12px;background:#14b8a6;border-radius:50%;border:2px solid white;box-shadow:0 0 8px rgba(20,184,166,0.6)"></div>`,
+  className: '', iconSize: [12, 12], iconAnchor: [6, 6]
+});
+sampleMarkers.forEach(([lat, lng, name]) => {
+  L.marker([lat, lng], {icon: greenIcon}).addTo(heroMap).bindPopup(`<b>${name}</b>`);
+});
+
+// Disable interactions for hero map
+heroMap.dragging.disable();
+heroMap.touchZoom.disable();
+heroMap.doubleClickZoom.disable();
+heroMap.scrollWheelZoom.disable();
+</script>
+{% endblock %}

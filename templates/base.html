@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Pathick — Your AI Travel Companion{% endblock %}</title>
+  <meta name="description" content="Pathick connects travelers and guides worldwide with live location sharing, real-time chat, and intelligent route planning." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Syne', 'sans-serif'],
+            body: ['DM Sans', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0fdf9',
+              100: '#ccfbef',
+              200: '#99f6e0',
+              300: '#5eead4',
+              400: '#2dd4bf',
+              500: '#14b8a6',
+              600: '#0d9488',
+              700: '#0f766e',
+              800: '#115e59',
+              900: '#134e4a',
+            },
+            surface: {
+              DEFAULT: '#0f1117',
+              50: '#f8f9fa',
+              100: '#1a1d27',
+              200: '#222535',
+              300: '#2d3147',
+            }
+          },
+          animation: {
+            'fade-up': 'fadeUp 0.6s ease forwards',
+            'pulse-slow': 'pulse 3s ease-in-out infinite',
+          },
+          keyframes: {
+            fadeUp: {
+              from: {opacity: '0', transform: 'translateY(20px)'},
+              to: {opacity: '1', transform: 'translateY(0)'},
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <!-- Socket.IO -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    * { font-family: 'DM Sans', sans-serif; }
+    h1, h2, h3, .font-display { font-family: 'Syne', sans-serif; }
+
+    :root {
+      --brand: #14b8a6;
+      --brand-dark: #0d9488;
+      --surface: #0f1117;
+      --surface-2: #1a1d27;
+      --surface-3: #222535;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+
+    body.dark {
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .glass {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #14b8a6, #6366f1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .btn-brand {
+      background: linear-gradient(135deg, #14b8a6, #0d9488);
+      color: white;
+      padding: 10px 24px;
+      border-radius: 10px;
+      font-weight: 600;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-brand:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(20,184,166,0.35); }
+
+    .btn-ghost {
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text);
+      padding: 10px 24px;
+      border-radius: 10px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.08); }
+
+    .nav-link {
+      color: #94a3b8;
+      transition: color 0.2s;
+      font-weight: 500;
+    }
+    .nav-link:hover, .nav-link.active { color: #14b8a6; }
+
+    .card {
+      background: var(--surface-2);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .card:hover { border-color: rgba(20,184,166,0.3); }
+
+    .input-field {
+      background: var(--surface-3);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      color: var(--text);
+      padding: 12px 16px;
+      width: 100%;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    .input-field:focus { border-color: #14b8a6; }
+    .input-field::placeholder { color: #64748b; }
+
+    .sidebar {
+      background: var(--surface-2);
+      border-right: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* Map styles */
+    #map { border-radius: 12px; }
+    .leaflet-popup-content-wrapper {
+      background: var(--surface-2) !important;
+      color: var(--text) !important;
+      border: 1px solid rgba(255,255,255,0.1) !important;
+      border-radius: 12px !important;
+    }
+    .leaflet-popup-tip { background: var(--surface-2) !important; }
+
+    /* Toast notification */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--surface-2);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 14px 20px;
+      display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      z-index: 9999;
+      animation: fadeUp 0.4s ease;
+      max-width: 380px;
+    }
+    .toast.success { border-color: #14b8a6; }
+    .toast.error { border-color: #ef4444; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+
+    .online-dot {
+      width: 10px; height: 10px;
+      background: #22c55e;
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: 0 0 6px #22c55e;
+    }
+    .offline-dot {
+      width: 10px; height: 10px;
+      background: #64748b;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .animate-slide-in { animation: slideIn 0.3s ease; }
+  </style>
+
+  {% block head %}{% endblock %}
+</head>
+<body class="dark bg-surface text-slate-100 min-h-screen">
+
+{% block navbar %}
+<nav class="fixed top-0 left-0 right-0 z-50 glass border-b border-white/5">
+  <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
+        <i class="fa-solid fa-compass text-white text-sm"></i>
+      </div>
+      <span class="font-display font-bold text-xl">Pathick</span>
+    </a>
+
+    <div class="hidden md:flex items-center gap-6">
+      <a href="/dashboard" class="nav-link">Dashboard</a>
+      <a href="/map" class="nav-link">Map</a>
+      <a href="/chat" class="nav-link">Chat</a>
+      <a href="/routes" class="nav-link">Routes</a>
+      <a href="/guides" class="nav-link">Guides</a>
+    </div>
+
+    <div class="flex items-center gap-3" id="navAuth">
+      <a href="/login" class="btn-ghost text-sm">Login</a>
+      <a href="/signup" class="btn-brand text-sm">Get Started</a>
+    </div>
+
+    <!-- Mobile menu button -->
+    <button class="md:hidden text-slate-400" id="mobileMenuBtn">
+      <i class="fa-solid fa-bars text-xl"></i>
+    </button>
+  </div>
+
+  <!-- Mobile menu -->
+  <div class="md:hidden hidden border-t border-white/5 bg-surface-2" id="mobileMenu">
+    <div class="px-4 py-3 space-y-2">
+      <a href="/dashboard" class="block nav-link py-2">Dashboard</a>
+      <a href="/map" class="block nav-link py-2">Map</a>
+      <a href="/chat" class="block nav-link py-2">Chat</a>
+      <a href="/routes" class="block nav-link py-2">Routes</a>
+      <a href="/guides" class="block nav-link py-2">Guides</a>
+      <a href="/profile" class="block nav-link py-2">Profile</a>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+
+<div class="pt-16">
+  {% block content %}{% endblock %}
+</div>
+
+<!-- Toast container -->
+<div id="toastContainer"></div>
+
+<script>
+// Global utilities
+const API = {
+  BASE: '/api',
+  token: localStorage.getItem('pathick_token'),
+
+  headers() {
+    return {
+      'Content-Type': 'application/json',
+      ...(this.token ? { 'Authorization': `Bearer ${this.token}` } : {})
+    };
+  },
+
+  async get(path) {
+    const r = await fetch(this.BASE + path, { headers: this.headers() });
+    return r.json();
+  },
+
+  async post(path, body) {
+    const r = await fetch(this.BASE + path, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(body)
+    });
+    return r.json();
+  },
+
+  async put(path, body) {
+    const r = await fetch(this.BASE + path, {
+      method: 'PUT',
+      headers: this.headers(),
+      body: JSON.stringify(body)
+    });
+    return r.json();
+  },
+
+  async delete(path) {
+    const r = await fetch(this.BASE + path, {
+      method: 'DELETE',
+      headers: this.headers()
+    });
+    return r.json();
+  }
+};
+
+function showToast(message, type = 'info', duration = 3500) {
+  const icons = { success: 'fa-check-circle text-brand-400', error: 'fa-circle-xmark text-red-400', info: 'fa-circle-info text-blue-400', warning: 'fa-triangle-exclamation text-yellow-400' };
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info} text-lg"></i><span class="text-sm">${message}</span><button onclick="this.parentElement.remove()" class="ml-auto text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>`;
+  document.getElementById('toastContainer').appendChild(toast);
+  setTimeout(() => toast.remove(), duration);
+}
+
+// Auth state
+async function checkAuth() {
+  const token = localStorage.getItem('pathick_token');
+  if (!token) return null;
+  API.token = token;
+  try {
+    const data = await API.get('/auth/me');
+    if (data.user) {
+      updateNavForUser(data.user);
+      return data.user;
+    }
+  } catch(e) {}
+  localStorage.removeItem('pathick_token');
+  return null;
+}
+
+function updateNavForUser(user) {
+  const navAuth = document.getElementById('navAuth');
+  if (navAuth) {
+    navAuth.innerHTML = `
+      <a href="/chat" class="nav-link text-sm relative">
+        <i class="fa-regular fa-message"></i>
+        <span class="unread-badge hidden absolute -top-1 -right-1 w-4 h-4 bg-brand-500 rounded-full text-xs flex items-center justify-center">0</span>
+      </a>
+      <a href="/profile" class="flex items-center gap-2 nav-link">
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-xs font-bold">
+          ${user.username[0].toUpperCase()}
+        </div>
+        <span class="text-sm hidden md:block">${user.username}</span>
+      </a>
+      <button onclick="logout()" class="btn-ghost text-sm">Logout</button>
+    `;
+  }
+}
+
+async function logout() {
+  await API.post('/auth/logout', {});
+  localStorage.removeItem('pathick_token');
+  window.location.href = '/';
+}
+
+// Mobile menu
+document.getElementById('mobileMenuBtn')?.addEventListener('click', () => {
+  document.getElementById('mobileMenu').classList.toggle('hidden');
+});
+
+// Init
+checkAuth();
+</script>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>
